@@ -1,0 +1,30 @@
+{
+  "dag_id": "example__json_chain",
+  "schedule": null,
+  "max_active_runs": 1,
+
+  "nodes": [
+    {
+      "id": "task_a",
+      "type": "docker",
+      "image": "image-a:latest",
+      "command": "python run_a.py"
+    },
+    {
+      "id": "task_b",
+      "type": "docker",
+      "image": "image-b:latest",
+      "command": "python run_b.py"
+    },
+    {
+      "id": "wait_db",
+      "type": "db_sensor",
+      "query": "SELECT COUNT(*) FROM tasks WHERE finish_time IS NULL"
+    }
+  ],
+
+  "edges": [
+    ["task_a", "wait_db"],
+    ["task_b", "wait_db"]
+  ]
+}
