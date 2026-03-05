@@ -12,9 +12,12 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/data/airflow.db
 
     volumes:
+      # Persist Airflow database and password
+      - ./data:/opt/airflow/data
+
       # Your DAGs (Python files)
       - ./dags:/opt/airflow/dags
 
