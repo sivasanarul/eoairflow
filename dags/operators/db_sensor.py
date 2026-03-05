@@ -1,5 +1,5 @@
 from airflow.sensors.python import PythonSensor
-from dags.common.db import condition_met
+from common.db import condition_met
 
 def db_sensor_operator(*, task_id, query, db_config):
     return PythonSensor(

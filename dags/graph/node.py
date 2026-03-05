@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional, Literal
+from dataclasses import dataclass, field
+from typing import Optional, Literal, Dict, List
 
 NodeType = Literal["docker", "db_sensor"]
 
@@ -10,3 +10,9 @@ class Node:
     image: Optional[str] = None
     command: Optional[str] = None
     query: Optional[str] = None
+    # Environment variables for Docker containers
+    environment: Dict[str, str] = field(default_factory=dict)
+    # Volume mounts for Docker containers (list of "host:container" strings)
+    volumes: List[str] = field(default_factory=list)
+    # Docker network configuration
+    network_mode: Optional[str] = None

@@ -1,0 +1,24 @@
+{
+  "dag_id": "test__two_step",
+  "schedule": null,
+
+  "nodes": [
+    {
+      "id": "step_1",
+      "type": "docker",
+      "image": "test-chain:latest",
+      "command": "python script_1.py"
+    },
+    {
+      "id": "step_2",
+      "type": "docker",
+      "image": "test-chain:latest",
+      "command": "python script_2.py"
+    }
+  ],
+
+  "edges": [
+    ["step_1", "step_2"]
+  ]
+}
+

@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  airflow:
+    image: apache/airflow:2.8.1
+    container_name: airflow
+    restart: unless-stopped
+    user: "50000:0"
+    group_add:
+      - "106"
+
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+
+    volumes:
+      # Your DAGs (Python files)
+      - ./dags:/opt/airflow/dags
+
+      # Your JSON configs
+      - ./config:/opt/airflow/config
+
+      # Required so DockerOperator can launch containers
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    ports:
+      - "8080:8080"
+
+    command: airflow standalone

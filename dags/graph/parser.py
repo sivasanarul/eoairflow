@@ -1,6 +1,6 @@
 import json
-from dags.graph.graph import Graph
-from dags.graph.node import Node
+from graph.graph import Graph
+from graph.node import Node
 
 def load_graph_from_json(path):
     with open(path) as f:
@@ -16,6 +16,9 @@ def load_graph_from_json(path):
                 image=n.get("image"),
                 command=n.get("command"),
                 query=n.get("query"),
+                environment=n.get("environment", {}),
+                volumes=n.get("volumes", []),
+                network_mode=n.get("network_mode"),
             )
         )
 
