@@ -18,7 +18,7 @@ from common.defaults import default_args, DB_CONFIG
 
 
 # Load configuration from JSON
-CHAIN_FILE = Path(__file__).parents[2] / "config" / "chains" / "preprocessing_chain.json"
+CHAIN_FILE = Path(__file__).parents[2] / "config" / "chains" / "agri_anomaly_chain.json"
 data, graph = load_graph_from_json(str(CHAIN_FILE))
 
 # Build DAG parameters from JSON params with Param objects for UI
@@ -29,16 +29,21 @@ dag_params = {
     "service_name": Param(json_params.get("service_name", "HM"), type="string", description="Service name"),
     "pixel_size": Param(json_params.get("pixel_size", "10"), type="string", description="Pixel size in metres"),
     "yearmonth": Param(json_params.get("yearmonth", "20250930"), type="string", description="Analysis yearmonth"),
+    "foi": Param(json_params.get("foi", "no"), type="string", description="Feature of Interest flag (yes/no)"),
+    "subtiling": Param(json_params.get("subtiling", "yes"), type="string", description="Subtiling flag (yes/no)"),
     "input_archive_roots": Param(json_params.get("input_archive_roots", "/mnt/hddarchive.nfs/output"), type="string", description="Input archive paths"),
     "output_archive_root": Param(json_params.get("output_archive_root", "/mnt/hddarchive.nfs/output"), type="string", description="Output archive root"),
     "output_archive_tmp": Param(json_params.get("output_archive_tmp", "/mnt/hddarchive.nfs/output.tmp"), type="string", description="Temp output path"),
     "support_data": Param(json_params.get("support_data", "/mnt/ssdarchive.nfs/support_data"), type="string", description="Support data path"),
     "worker_group": Param(json_params.get("worker_group", "preprocessing"), type="string", description="Worker group"),
     "run_no": Param(json_params.get("run_no", "RUN1"), type="string", description="Run number"),
+    "ndvimax_yearfrom": Param(json_params.get("ndvimax_yearfrom", "202401"), type="string", description="NDVI max range start yearmonth"),
+    "ndvimax_yearto": Param(json_params.get("ndvimax_yearto", "202412"), type="string", description="NDVI max range end yearmonth"),
+    "analysis_time": Param(json_params.get("analysis_time", "20241201-20250930"), type="string", description="Anomaly analysis time range (YYYYMMDD-YYYYMMDD)"),
 }
 
 with DAG(
-    dag_id=data.get("dag_id", "preprocessing_chain"),
+    dag_id=data.get("dag_id", "agri_anomaly_chain"),
     start_date=datetime(2024, 1, 1),
     schedule_interval=data.get("schedule"),
     catchup=False,

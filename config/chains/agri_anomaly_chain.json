@@ -1,0 +1,213 @@
+{
+  "dag_id": "agri_anomaly_chain",
+  "schedule": null,
+  "max_active_runs": 1,
+  "params": {
+    "project": "AIRFLOW",
+    "environment": "TEST",
+    "service_name": "HM",
+    "pixel_size": "10",
+    "yearmonth": "20250930",
+    "analysis_time": "20241201-20250930",
+    "do_foi": "no",
+    "subtiling": "yes",
+    "input_archive_roots": "/mnt/hddarchive.nfs/output",
+    "output_archive_root": "/mnt/hddarchive.nfs/output",
+    "output_archive_tmp": "/mnt/hddarchive.nfs/output.tmp",
+    "support_data": "/mnt/ssdarchive.nfs/support_data",
+    "worker_group": "sar",
+    "run_no": "RUN1",
+    "ndvimax_yearfrom": "202401",
+    "ndvimax_yearto": "202412"
+  },
+  "common_volumes": [
+    "/mnt/hddarchive.nfs:/mnt/hddarchive.nfs",
+    "/mnt/ssdarchive.nfs:/mnt/ssdarchive.nfs",
+    "/mnt/ssdarchive.nfs/support_data:/support_data",
+    "/mnt/ssdarchive.nfs/support_data/classification_support_data:/classification_support_data",
+    "/home/eouser/userdoc/src/tondor:/usr/local/src/tondor:ro",
+    "/home/eouser/userdoc/src/cop4n2k:/usr/local/src/cop4n2k:ro"
+  ],
+  "nodes": [
+    {
+      "id": "tondor_preprocessing",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 -m src.tondor.tool.preprocessing.preprocessing",
+      "environment": {
+        "PYTHONPATH": "/usr/local/src/tondor",
+        "TONDOR_TASK_ID": "12345",
+        "TONDOR_TASK_STATUS_DIR": "/var/tmp/status",
+        "TONDOR_KWARGS": "{\"service_name\": \"{{ params.service_name }}\", \"environment\": \"{{ params.environment }}\", \"project\": \"{{ params.project }}\", \"analysis_time\": \"{{ params.analysis_time }}\", \"do_tiling\": \"yes\", \"do_countpix_foi\": \"no\", \"create_output\": \"no\", \"do_subtiling\": \"no\", \"subtile_count\": 1}",
+        "INPUT_ARCHIVE_ROOTS": "{{ params.input_archive_roots }}",
+        "OUTPUT_ARCHIVE_ROOT": "{{ params.output_archive_root }}",
+        "OUTPUT_ARCHIVE_TMP": "{{ params.output_archive_tmp }}"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "submit_preprocessing",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/gisat-internal/submit_preprocessing.py",
+      "environment": {
+        "PROJECT": "{{ params.project }}",
+        "ENVIRONMENT": "{{ params.environment }}",
+        "SERVICE_NAME": "{{ params.service_name }}",
+        "YEARMONTH_TO": "{{ params.yearmonth }}",
+        "FOI": "{{ params.foi }}",
+        "SUBTILING": "{{ params.subtiling }}",
+        "TILE_NAME": null,
+        "WORKER_GROUP": "{{ params.worker_group }}",
+        "RUN_NO": "{{ params.run_no }}"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "wait_preprocessing_db",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/gisat-internal/poll_db.py",
+      "environment": {
+        "PROJECT": "{{ params.project }}",
+        "JOB_LABEL": "{{ params.project }}, PREPROCESS_{{ params.service_name }}_{{ params.yearmonth }}_{{ params.environment }}",
+        "TOOL_DEF": "preprocessing.json",
+        "POLL_INTERVAL": "60",
+        "POLL_TIMEOUT": "21600"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "submit_rasterburn",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/gisat-internal/submit_vectoroverlap_dpbrasterburn.py",
+      "environment": {
+        "PROJECT": "{{ params.project }}",
+        "ENVIRONMENT": "{{ params.environment }}",
+        "SERVICE_NAME": "{{ params.service_name }}",
+        "PIXEL_SIZE": "{{ params.pixel_size }}",
+        "YEARMONTH_TO": "{{ params.yearmonth }}",
+        "WORKER_GROUP": "{{ params.worker_group }}",
+        "RUN_NO": "{{ params.run_no }}"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "wait_rasterburn_db",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/gisat-internal/poll_db.py",
+      "environment": {
+        "PROJECT": "{{ params.project }}",
+        "JOB_LABEL": "{{ params.project }}, {{ params.service_name }}RASTERBURN_{{ params.yearmonth }}_{{ params.environment }}",
+        "TOOL_DEF": "removeoverlap_dpbrasterburn.json",
+        "POLL_INTERVAL": "60",
+        "POLL_TIMEOUT": "21600"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "tondor_ndvi_zscore",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 -m src.tondor.tool.baresoil.ndvi_zscore",
+      "environment": {
+        "PYTHONPATH": "/usr/local/src/tondor",
+        "TONDOR_TASK_ID": "12345",
+        "TONDOR_TASK_STATUS_DIR": "/var/tmp/status",
+        "TONDOR_KWARGS": "{\"service\": \"{{ params.service_name }}\", \"environment\": \"{{ params.environment }}\", \"project\": \"{{ params.project }}\", \"yearmonth\": \"{{ params.yearmonth }}\", \"pixel_size\": \"{{ params.pixel_size }}\"}",
+        "INPUT_ARCHIVE_ROOTS": "{{ params.input_archive_roots }}",
+        "OUTPUT_ARCHIVE_ROOT": "{{ params.output_archive_root }}",
+        "OUTPUT_ARCHIVE_TMP": "{{ params.output_archive_tmp }}",
+        "SUPPORT_DATA": "{{ params.support_data }}"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "tondor_ndvimax_zscore",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 -m src.tondor.tool.baresoil.ndvimax_zscore",
+      "environment": {
+        "PYTHONPATH": "/usr/local/src/tondor",
+        "TONDOR_TASK_ID": "12345",
+        "TONDOR_TASK_STATUS_DIR": "/var/tmp/status",
+        "TONDOR_KWARGS": "{\"service\": \"{{ params.service_name }}\", \"environment\": \"{{ params.environment }}\", \"project\": \"{{ params.project }}\", \"yearmonth\": \"{{ params.yearmonth }}\", \"pixel_size\": \"{{ params.pixel_size }}\", \"ndvimax_yearfrom\": \"{{ params.ndvimax_yearfrom }}\", \"ndvimax_yearto\": \"{{ params.ndvimax_yearto }}\"}",
+        "INPUT_ARCHIVE_ROOTS": "{{ params.input_archive_roots }}",
+        "OUTPUT_ARCHIVE_ROOT": "{{ params.output_archive_root }}",
+        "OUTPUT_ARCHIVE_TMP": "{{ params.output_archive_tmp }}",
+        "SUPPORT_DATA": "{{ params.support_data }}"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "submit_anomaly",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/gisat-internal/submit_anomaly.py",
+      "environment": {
+          "PROJECT": "{{ params.project }}",
+          "ENVIRONMENT": "{{ params.environment }}",
+          "SERVICE_NAME": "{{ params.service_name }}",
+          "PIXEL_SIZE": "{{ params.pixel_size }}",
+          "ANALYSIS_TIME": "{{ params.analysis_time }}",
+          "WORKER_GROUP": "{{ params.worker_group }}",
+          "RUN_NO": "{{ params.run_no }}",
+          "TILE_NAME": null,
+          "SUPPORT_DATA": "{{ params.support_data }}"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "wait_anomaly_db",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/gisat-internal/poll_db.py",
+      "environment": {
+        "JOB_LABEL": "{{ params.project }}, ANOMALY_{{ params.analysis_time }}_{{ params.environment }}",
+        "TOOL_DEF": "samas_anomaly.json",
+        "ANALYSIS_TIME": "{{ params.analysis_time }}",
+        "POLL_INTERVAL": "60",
+        "POLL_TIMEOUT": "21600",
+        "PROJECT": "{{ params.project }}",
+        "ENVIRONMENT": "{{ params.environment }}",
+        "SERVICE_NAME": "{{ params.service_name }}",
+        "TOOL_SERVICE": "anomaly"
+      },
+      "network_mode": "host"
+    },
+    {
+      "id": "merge_anomaly",
+      "type": "docker",
+      "image": "classification:latest",
+      "command": "python3 /usr/local/src/cop4n2k/src/merge_scripts/merge_anomaly.py",
+      "environment": {
+        "PROJECT": "{{ params.project }}",
+        "ENVIRONMENT": "{{ params.environment }}",
+        "TIMEPERIOD": "{{ params.analysis_time }}",
+        "SERVICE": "{{ params.service_name }}",
+        "PRODUCT": "anomaly",
+        "TILE_NAME": null,
+        "MERGE_TIFS": "true",
+        "MERGE_CSV": "false",
+        "MERGE_GPKG": "true",
+        "OUTPUT_ARCHIVE_ROOT": "{{ params.output_archive_root }}",
+        "PROJECT_OUTPUT_DIR": "{{ params.output_archive_root }}/projects",
+        "SUPPORT_DATA": "{{ params.support_data }}"
+      },
+      "network_mode": "host"
+    }
+  ],
+  "edges": [
+    ["tondor_preprocessing", "submit_preprocessing"],
+    ["submit_preprocessing", "wait_preprocessing_db"],
+    ["wait_preprocessing_db", "submit_rasterburn"],
+    ["submit_rasterburn", "wait_rasterburn_db"],
+    ["wait_rasterburn_db", "tondor_ndvi_zscore"],
+    ["tondor_ndvi_zscore", "tondor_ndvimax_zscore"],
+    ["tondor_ndvimax_zscore", "submit_anomaly"],
+    ["submit_anomaly", "wait_anomaly_db"],
+    ["wait_anomaly_db", "merge_anomaly"]
+  ]
+}

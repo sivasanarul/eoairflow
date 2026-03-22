@@ -1,0 +1,35 @@
+# Airflow database and runtime files
+data/airflow.db
+*.db
+
+# Airflow local config directory
+.airflow/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+data
+localhost.crt
+localhost.key
+nginx.htpasswd
