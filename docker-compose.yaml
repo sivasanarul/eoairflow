@@ -1,6 +1,24 @@
 version: "3.8"
 
 services:
+  scheduler:
+    image: apache/airflow:2.8.1
+    container_name: airflow-scheduler
+    restart: unless-stopped
+    user: "50000:0"
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    volumes:
+      - ./data:/opt/airflow/data
+      - ./dags:/opt/airflow/dags
+      - ./config:/opt/airflow/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: bash -c "airflow scheduler"
+
   airflow:
     image: apache/airflow:2.8.1
     container_name: airflow
@@ -8,28 +26,41 @@ services:
     user: "50000:0"
     group_add:
       - "106"
-
     environment:
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/data/airflow.db
-
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__DATABASE__LOAD_DEFAULT_CONNECTIONS: "false"
+      AIRFLOW__CORE__FERNET_KEY: ""
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__SQL_ALCHEMY_POOL_ENABLED: "true"
     volumes:
-      # Persist Airflow database and password
+      # Persist Airflow logs
       - ./data:/opt/airflow/data
-
       # Your DAGs (Python files)
       - ./dags:/opt/airflow/dags
-
       # Your JSON configs
       - ./config:/opt/airflow/config
-
       # Required so DockerOperator can launch containers
       - /var/run/docker.sock:/var/run/docker.sock
-
     expose:
       - "8080"
-    command: airflow standalone
+    depends_on:
+      - postgres
+    command: bash -c "airflow db upgrade && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && airflow webserver -D"
+
+  postgres:
+    image: postgres:15
+    container_name: postgres-airflow
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
 
   nginx:
     image: nginx:1.25
@@ -44,3 +75,7 @@ services:
       - ./nginx.htpasswd:/etc/nginx/nginx.htpasswd:ro
     depends_on:
       - airflow
+      - postgres
+# Volumes
+volumes:
+  postgres_data:
